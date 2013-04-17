@@ -13,6 +13,7 @@ namespace Lib.Collections
         private readonly Func<TKey, TKey, bool> _equal;
 
         private readonly TKey _emptyKey;
+        private readonly TValue _emptyValue;
 
         private TKey[] _keys;
         private TValue[] _values;
@@ -33,7 +34,9 @@ namespace Lib.Collections
 
             _capacity = DEFAULT_CAPACITY;
             _totalElements = 0;
+
             _emptyKey = default(TKey);
+            _emptyValue = default(TValue);
         }
 
         private float GetLoadFactor()
@@ -55,8 +58,13 @@ namespace Lib.Collections
                 newKeysStorage.Fill(_emptyKey);
             }
 
-            int elementsMoved = 0;
-            for (int i = 0; i < _capacity && elementsMoved < _totalElements; i++)
+            if (!EqualityComparer<TValue>.Default.Equals(default(TValue), _emptyValue))
+            {
+                newValuesStorage.Fill(_emptyValue);
+            }
+
+            var elementsMoved = 0;
+            for (var i = 0; i < _capacity && elementsMoved < _totalElements; i++)
             {
                 var currentKey = _keys[i];
                 var currentValue = _values[i];
@@ -76,62 +84,131 @@ namespace Lib.Collections
             _capacity = newCapacity;
         }
 
+        private bool IsKeyCellEmpty(int cellIndex)
+        {
+            return EqualityComparer<TKey>.Default.Equals(_keys[cellIndex], _emptyKey);
+        }
 
+        private bool IsEmptyValue(TValue val)
+        {
+            return EqualityComparer<TValue>.Default.Equals(val, _emptyValue);
+        }
+
+        private bool IsEmptyKey(TKey key)
+        {
+            return EqualityComparer<TKey>.Default.Equals(key, _emptyKey);
+        }
 
         private int FindFirstEmptyKeyCell(int newItemIndexCandidate, TKey[] newKeysStorage)
         {
-            var currentIndex = newItemIndexCandidate;
-            for (; currentIndex < newKeysStorage.Length; currentIndex++)
-            {
-                var currentKey = newKeysStorage[currentIndex];
-                if (EqualityComparer<TKey>.Default.Equals(currentKey, _emptyKey)) return currentIndex;
-            }
-
-            //not found. let's search from the top
-            currentIndex = 0;
-            for (; currentIndex < newItemIndexCandidate; currentIndex++)
-            {
-                var currentKey = newKeysStorage[currentIndex];
-                if (EqualityComparer<TKey>.Default.Equals(currentKey, _emptyKey)) return currentIndex; 
-            }
+            var maybeResult = newKeysStorage.FindItemCycled(newItemIndexCandidate, IsEmptyKey);
+            if (maybeResult.HasValue) return maybeResult.Value;
 
             throw new InvalidOperationException("Can't find empty cell for a key");
         }
 
         public void Add(TKey key, TValue value)
         {
+            AddOrReplace(key, value, DuplicateKeyResolutionPolicy.Throw);
+        }
+
+        public enum DuplicateKeyResolutionPolicy
+        {
+            Throw,
+            DoNothing,
+            ReplaceOnlyValue,
+            ReplaceKeyAndValue
+        }
+
+        public HashMap<TKey, TValue> AddOrReplace(TKey key, TValue value, DuplicateKeyResolutionPolicy policy)
+        {
             var loadFactor = GetLoadFactor();
             if (loadFactor >= THREASHOLD)
             {
                 Realloc();
             }
-            var keyIndexCandidate = _getHash(key)%_capacity;
+            var itemIndexCandidate = _getHash(key) % _capacity;
 
-        }
+            var maybeAnItemIndex = _keys.FindItemCycled(itemIndexCandidate, aKey => IsEmptyKey(aKey) || _equal(aKey, key));
+            if (!maybeAnItemIndex.HasValue) throw new InvalidOperationException("Internal error: no free space");
+
+            var anItemIndex = maybeAnItemIndex.Value;
+
+            //ok, what we actually have here?
+            if (_equal(_keys[anItemIndex], key))
+            {
+                var alreadyExistingKeyIndex = anItemIndex;
+                switch (policy)
+                {
+                    case DuplicateKeyResolutionPolicy.Throw:
+                        throw new ArgumentException("An element with the same key already exists");
+
+                    case DuplicateKeyResolutionPolicy.DoNothing:
+                        break;
+
+                    case DuplicateKeyResolutionPolicy.ReplaceOnlyValue:
+                        _values[alreadyExistingKeyIndex] = value;
+                        break;
+
+                    case DuplicateKeyResolutionPolicy.ReplaceKeyAndValue:
+                        _keys[anItemIndex] = key;
+                        _values[anItemIndex] = value;
+                        break;
+
+                    default:
+                        throw new ArgumentOutOfRangeException("policy");
+                }
+
+            }
+            else
+            {
+                //by exclusion, we have an empty cell index
+                var emptyCellIndex = anItemIndex;
+
+                _keys[emptyCellIndex] = key;
+                _values[emptyCellIndex] = value;
+                _totalElements++;
+            }
+
+            return this;
+        } 
 
         public bool ContainsKey(TKey key)
         {
-            throw new NotImplementedException();
+            var candidateIndex = _getHash(key) % _capacity;
+            return _keys.FindItemCycled(candidateIndex, aKey => _equal(aKey, key)).HasValue;
         }
 
         public ICollection<TKey> Keys
         {
-            get { throw new NotImplementedException(); }
+            get { return _keys.Where(key => !IsEmptyKey(key)).ToArray(); }
         }
 
         public bool Remove(TKey key)
         {
-            throw new NotImplementedException();
+            var itemIndexCandidate = _getHash(key)%_capacity;
+            var maybeItemIndex = _keys.FindItemCycled(itemIndexCandidate, aKey => _equal(aKey, key) || IsEmptyKey(aKey));
+            if (!maybeItemIndex.HasValue) throw new InvalidOperationException("some shit happened"); //there is must be at least one empty cell or cell with key provided.
+            var itemIndex = maybeItemIndex.Value;
+            if (IsEmptyKey(_keys[itemIndex])) return false;
+
+            _keys[itemIndex] = _emptyKey;
+            _values[itemIndex] = _emptyValue;
+            _totalElements--;
+
+            //depending on remove policy, we could shrink our keys and values storages
+            return true;
         }
 
         public bool TryGetValue(TKey key, out TValue value)
         {
-            throw new NotImplementedException();
+            value = default(TValue);
+            return false;
         }
 
         public ICollection<TValue> Values
         {
-            get { throw new NotImplementedException(); }
+            get { return _values.Where(val => !IsEmptyValue(val)).ToArray(); }
         }
 
         public TValue this[TKey key]
@@ -142,13 +219,13 @@ namespace Lib.Collections
             }
             set
             {
-                throw new NotImplementedException();
+                AddOrReplace(key, value, DuplicateKeyResolutionPolicy.ReplaceOnlyValue);
             }
         }
 
         public void Add(KeyValuePair<TKey, TValue> item)
         {
-            throw new NotImplementedException();
+            Add(item.Key, item.Value);
         }
 
         public void Clear()
@@ -158,7 +235,7 @@ namespace Lib.Collections
 
         public bool Contains(KeyValuePair<TKey, TValue> item)
         {
-            throw new NotImplementedException();
+            return ContainsKey(item.Key);
         }
 
         public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)
@@ -168,12 +245,12 @@ namespace Lib.Collections
 
         public int Count
         {
-            get { throw new NotImplementedException(); }
+            get { return _totalElements; }
         }
 
         public bool IsReadOnly
         {
-            get { throw new NotImplementedException(); }
+            get { return false; }
         }
 
         public bool Remove(KeyValuePair<TKey, TValue> item)
