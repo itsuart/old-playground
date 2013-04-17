@@ -76,7 +76,7 @@ namespace Lib.Collections
             _capacity = newCapacity;
         }
 
-        private int? FindItemInedexCycled(TKey[] keys, int startingIndex,)
+
 
         private int FindFirstEmptyKeyCell(int newItemIndexCandidate, TKey[] newKeysStorage)
         {
