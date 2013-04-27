@@ -41,6 +41,20 @@ namespace Lib.Containers
         public static Either<TLeft, TRight> Right(TRight value)
         {
             return new Either<TLeft, TRight>(false, default(TLeft), value);
+        }
+ 
+        public Either<TLeft, TRight> Bind(Func<TRight, TRight> f)
+        {
+            if (f == null) throw new ArgumentNullException("f");
+            if (IsLeft) return this;
+            return Right(f(RightValue));
+        } 
+
+        public Either<TLeft, TRight2> Bind<TRight2>(Func<TRight, Either<TLeft, TRight2>> f)
+        {
+            if (f == null) throw new ArgumentNullException("f");
+            if (IsLeft) return Either<TLeft, TRight2>.Left(LeftValue);
+            return f(RightValue);
         } 
     }
 }

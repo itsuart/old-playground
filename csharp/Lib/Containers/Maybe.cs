@@ -28,6 +28,21 @@ namespace Lib.Monads
             }
         }
 
+        public Maybe<T> Bind(Func<T, T> f)
+        {
+            if (f == null) throw new ArgumentNullException("f");
+
+            if (HasValue) return new Maybe<T>(f(Value));
+            return this;
+        } 
+
+        public Maybe<T2> Bind<T2>(Func<T, Maybe<T2>> f)
+        {
+            if (f == null) throw new ArgumentNullException("f");
+            if (HasValue) return f(Value);
+            return Maybe<T2>.Nothing;
+        } 
+
         public static readonly Maybe<T> Nothing = new Maybe<T>();
     }
 }
