@@ -31,7 +31,7 @@ namespace Lib.Extensions
         /// <param name="initialElement"></param>
         /// <param name="f"></param>
         /// <returns></returns>
-        internal static IEnumerable<T> MakeStream<T>(T initialElement, Func<T, T> f)
+        internal static IEnumerable<T> MakeStream<T>(this T initialElement, Func<T, T> f)
         {
             yield return initialElement;
             var element = initialElement;
