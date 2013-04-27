@@ -40,8 +40,14 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Collections\HashMap.cs" />
+    <Compile Include="Containers\Either.cs" />
     <Compile Include="Extensions\CollectionExtensions.cs" />
+    <Compile Include="Containers\Maybe.cs" />
+    <Compile Include="Extensions\FunctionalExtensions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Monads\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
