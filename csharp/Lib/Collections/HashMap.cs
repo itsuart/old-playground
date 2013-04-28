@@ -1,8 +1,7 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Lib.Extensions;
 
 namespace Lib.Collections
@@ -10,7 +9,8 @@ namespace Lib.Collections
     public class HashMap<TKey,TValue> : IDictionary<TKey,TValue>
     {
         private readonly Func<TKey, int> _getHash;
-        private readonly Func<TKey, TKey, bool> _equal;
+        private readonly Func<TKey, TKey, bool> _keysEqual;
+        private readonly Func<TValue, TValue, bool> _valuesEqual; 
 
         private readonly TKey _emptyKey;
         private readonly TValue _emptyValue;
@@ -24,13 +24,15 @@ namespace Lib.Collections
         private const float THREASHOLD = 0.7f;
 
 
-        public HashMap(Func<TKey, int> getHash, Func<TKey, TKey, bool> equals)
+        public HashMap(Func<TKey, int> getHash, Func<TKey, TKey, bool> keysEquals, Func<TValue, TValue, bool> valuesEqual)
         {
             if (getHash == null) throw new ArgumentNullException("getHash");
-            if (equals == null) throw new ArgumentNullException("equals");
+            if (keysEquals == null) throw new ArgumentNullException("keysEquals");
+            if (valuesEqual == null) throw new ArgumentNullException("valuesEqual");
 
             _getHash = getHash;
-            _equal = equals;
+            _keysEqual = keysEquals;
+            _valuesEqual = valuesEqual;
 
             _capacity = DEFAULT_CAPACITY;
             _totalElements = 0;
@@ -48,7 +50,7 @@ namespace Lib.Collections
         private void Realloc()
         {
             var newCapacity = _capacity*2;
-            if (newCapacity < _capacity) newCapacity = int.MaxValue;
+            if (newCapacity < _capacity) newCapacity = int.MaxValue; //in case of integer overflow
 
             var newKeysStorage = new TKey[newCapacity];
             var newValuesStorage = new TValue[newCapacity];
@@ -86,7 +88,7 @@ namespace Lib.Collections
 
         private bool IsKeyCellEmpty(int cellIndex)
         {
-            return EqualityComparer<TKey>.Default.Equals(_keys[cellIndex], _emptyKey);
+            return IsEmptyKey(_keys[cellIndex]);
         }
 
         private bool IsEmptyValue(TValue val)
@@ -129,13 +131,13 @@ namespace Lib.Collections
             }
             var itemIndexCandidate = _getHash(key) % _capacity;
 
-            var maybeAnItemIndex = _keys.FindItemCycled(itemIndexCandidate, aKey => IsEmptyKey(aKey) || _equal(aKey, key));
+            var maybeAnItemIndex = _keys.FindItemCycled(itemIndexCandidate, aKey => IsEmptyKey(aKey) || _keysEqual(aKey, key));
             if (!maybeAnItemIndex.HasValue) throw new InvalidOperationException("Internal error: no free space");
 
             var anItemIndex = maybeAnItemIndex.Value;
 
             //ok, what we actually have here?
-            if (_equal(_keys[anItemIndex], key))
+            if (_keysEqual(_keys[anItemIndex], key))
             {
                 var alreadyExistingKeyIndex = anItemIndex;
                 switch (policy)
@@ -176,7 +178,7 @@ namespace Lib.Collections
         public bool ContainsKey(TKey key)
         {
             var candidateIndex = _getHash(key) % _capacity;
-            return _keys.FindItemCycled(candidateIndex, aKey => _equal(aKey, key)).HasValue;
+            return _keys.FindItemCycled(candidateIndex, aKey => _keysEqual(aKey, key)).HasValue;
         }
 
         public ICollection<TKey> Keys
@@ -184,14 +186,28 @@ namespace Lib.Collections
             get { return _keys.Where(key => !IsEmptyKey(key)).ToArray(); }
         }
 
-        public bool Remove(TKey key)
+        private int? GetItemOrFirstEmptyCellIndex(TKey key)
         {
-            var itemIndexCandidate = _getHash(key)%_capacity;
-            var maybeItemIndex = _keys.FindItemCycled(itemIndexCandidate, aKey => _equal(aKey, key) || IsEmptyKey(aKey));
+            var itemIndexCandidate = _getHash(key) % _capacity;
+            return _keys.FindItemCycled(itemIndexCandidate, aKey => _keysEqual(aKey, key) || IsEmptyKey(aKey));
+
+        }
+
+        private int? GetItemIndex(TKey key)
+        {
+            var maybeItemIndex = GetItemOrFirstEmptyCellIndex(key);
             if (!maybeItemIndex.HasValue) throw new InvalidOperationException("some shit happened"); //there is must be at least one empty cell or cell with key provided.
             var itemIndex = maybeItemIndex.Value;
-            if (IsEmptyKey(_keys[itemIndex])) return false;
+            if (IsKeyCellEmpty(itemIndex)) return null;
+            return itemIndex;
+        }
 
+        public bool Remove(TKey key)
+        {
+            var maybeItemIndex = GetItemIndex(key);
+            if (!maybeItemIndex.HasValue) return false;
+            
+            var itemIndex = maybeItemIndex.Value;
             _keys[itemIndex] = _emptyKey;
             _values[itemIndex] = _emptyValue;
             _totalElements--;
@@ -203,7 +219,14 @@ namespace Lib.Collections
         public bool TryGetValue(TKey key, out TValue value)
         {
             value = default(TValue);
-            return false;
+
+            var maybeItemIndex = GetItemIndex(key);
+            if (!maybeItemIndex.HasValue) return false;
+
+            var itemIndex = maybeItemIndex.Value;
+            value = _values[itemIndex];
+
+            return true;
         }
 
         public ICollection<TValue> Values
@@ -215,7 +238,9 @@ namespace Lib.Collections
         {
             get
             {
-                throw new NotImplementedException();
+                TValue result;
+                if (TryGetValue(key, out result)) return result;
+                throw new KeyNotFoundException();
             }
             set
             {
@@ -230,17 +255,21 @@ namespace Lib.Collections
 
         public void Clear()
         {
-            throw new NotImplementedException();
+            _keys.Fill(_emptyKey);
+            _values.Fill(_emptyValue);
+            _totalElements = 0;
         }
 
         public bool Contains(KeyValuePair<TKey, TValue> item)
         {
-            return ContainsKey(item.Key);
+            TValue value;
+            return TryGetValue(item.Key, out value) && _valuesEqual(value, item.Value);
         }
 
         public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)
         {
-            throw new NotImplementedException();
+            var contents = this.ToArray();
+            Array.Copy(contents, 0, array, arrayIndex, contents.Length);
         }
 
         public int Count
@@ -255,17 +284,81 @@ namespace Lib.Collections
 
         public bool Remove(KeyValuePair<TKey, TValue> item)
         {
-            throw new NotImplementedException();
+            var maybeItemIndex = GetItemIndex(item.Key);
+            if (!maybeItemIndex.HasValue) return false;
+            
+            var itemIndex = maybeItemIndex.Value;
+            if (_valuesEqual(item.Value, _values[itemIndex]))
+            {
+                _totalElements--;
+                _keys[itemIndex] = _emptyKey;
+                _values[itemIndex] = _emptyValue;
+                return true;
+            }
+            return false;
+        }
+
+        private class Enumerator : IEnumerator<KeyValuePair<TKey,TValue>>
+        {
+            private HashMap<TKey, TValue> _container;
+            private int _currentIndex = -1;
+            private int _valuesEnumerated = 0;
+
+            public Enumerator(HashMap<TKey, TValue> container)
+            {
+                _container = container;
+            }
+
+            public void Dispose()
+            {
+                _container = null;
+                _currentIndex = -1;
+                _valuesEnumerated = -1;
+            }
+
+            public bool MoveNext()
+            {
+                if (_valuesEnumerated == _container._totalElements) return false;
+                while (_currentIndex < _container._capacity)
+                {
+                    _currentIndex++; //to accomodate to -1
+                    if (_container.IsKeyCellEmpty(_currentIndex)) continue;
+
+                    _valuesEnumerated++;
+                    return true;
+                }
+                return false;
+            }
+
+            public void Reset()
+            {
+                _currentIndex = -1;
+                _valuesEnumerated = 0;
+            }
+
+            public KeyValuePair<TKey, TValue> Current
+            {
+                get
+                {
+                    return new KeyValuePair<TKey, TValue>(_container._keys[_currentIndex],
+                                                          _container._values[_currentIndex]);
+                }
+            }
+
+            object IEnumerator.Current
+            {
+                get { return Current; }
+            }
         }
 
         public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
         {
-            throw new NotImplementedException();
+            return new Enumerator(this);
         }
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         {
-            throw new NotImplementedException();
+            return GetEnumerator();
         }
     }
 }
