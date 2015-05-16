@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Lib.Monads;
 
 namespace Lib.Extensions
 {
@@ -50,6 +51,12 @@ namespace Lib.Extensions
         public static void SendTo<T>(this T arg, Action<T> f)
         {
             f(arg);
+        }
+
+        public static Maybe<T> AsMaybe<T>(T nullableObject) where T:class
+        {
+            if (nullableObject == null) return Maybe<T>.Nothing;
+            return new Maybe<T>(nullableObject);
         }
     }
 }

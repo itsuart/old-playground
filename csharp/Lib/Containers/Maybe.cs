@@ -47,7 +47,13 @@ namespace Lib.Monads
             if (f == null) throw new ArgumentNullException("f");
             if (HasValue) return f(Value);
             return Maybe<T2>.Nothing;
-        } 
+        }
+
+        public void Run(Action<T> action)
+        {
+            if (action == null) throw new ArgumentNullException("action");
+            if (HasValue) action(_value);
+        }
 
         public static readonly Maybe<T> Nothing = new Maybe<T>();
     }
