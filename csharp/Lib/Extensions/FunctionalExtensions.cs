@@ -53,7 +53,7 @@ namespace Lib.Extensions
             f(arg);
         }
 
-        public static Maybe<T> AsMaybe<T>(T nullableObject) where T:class
+        public static Maybe<T> AsMaybe<T>(this T nullableObject) where T:class
         {
             if (nullableObject == null) return Maybe<T>.Nothing;
             return new Maybe<T>(nullableObject);
