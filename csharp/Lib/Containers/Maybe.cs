@@ -28,12 +28,18 @@ namespace Lib.Monads
             }
         }
 
-        public Maybe<T> Bind(Func<T, T> f)
+        public Maybe<T2> Fmap<T2>(Func<T, T2> f)
         {
             if (f == null) throw new ArgumentNullException("f");
 
-            if (HasValue) return new Maybe<T>(f(Value));
-            return this;
+            if (HasValue)
+            {
+                return new Maybe<T2>(f(Value));
+            }
+            else
+            {
+                return new Maybe<T2>();   
+            }
         } 
 
         public Maybe<T2> Bind<T2>(Func<T, Maybe<T2>> f)

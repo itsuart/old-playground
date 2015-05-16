@@ -43,7 +43,7 @@ namespace Lib.Containers
             return new Either<TLeft, TRight>(false, default(TLeft), value);
         }
  
-        public Either<TLeft, TRight> Bind(Func<TRight, TRight> f)
+        public Either<TLeft, TRight> Fmap(Func<TRight, TRight> f)
         {
             if (f == null) throw new ArgumentNullException("f");
             if (IsLeft) return this;
