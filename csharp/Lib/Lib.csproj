@@ -41,6 +41,7 @@
   <ItemGroup>
     <Compile Include="Collections\HashMap.cs" />
     <Compile Include="Containers\Either.cs" />
+    <Compile Include="Containers\FuncChain.cs" />
     <Compile Include="Extensions\CollectionExtensions.cs" />
     <Compile Include="Containers\Maybe.cs" />
     <Compile Include="Extensions\FunctionalExtensions.cs" />
