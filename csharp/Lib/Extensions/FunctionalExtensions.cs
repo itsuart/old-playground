@@ -53,10 +53,20 @@ namespace Lib.Extensions
             f(arg);
         }
 
+        public static Func<a, c> Dot<a, b, c>(this Func<b, c> f1, Func<a, b> f2)
+        {
+            return x => f1(f2(x));
+        }
+
+        public static Func<a, b> Const<a,b>(this b anything)
+        {
+            return _ => anything;
+        }
+
         public static Maybe<T> AsMaybe<T>(this T nullableObject) where T:class
         {
             if (nullableObject == null) return Maybe<T>.Nothing;
-            return new Maybe<T>(nullableObject);
+            return Maybe<T>.Just(nullableObject);
         }
     }
 }

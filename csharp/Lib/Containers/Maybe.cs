@@ -2,21 +2,26 @@
 
 namespace Lib.Monads
 {
-    public class Maybe<T>
+    public struct Maybe<T> : IFunctor<T>
     {
         public readonly bool HasValue;
+
+        public readonly bool IsNothing;
+
         private readonly T _value;
 
-        public Maybe(T item)
+        private Maybe(T item)
         {
             _value = item;
             HasValue = true;
+            IsNothing = false;
         } 
 
-        public Maybe()
+        private Maybe(object stub1, object stub2)
         {
             _value = default(T);
             HasValue = false;
+            IsNothing = true;
         }
 
         public T Value
@@ -28,6 +33,11 @@ namespace Lib.Monads
             }
         }
 
+        IFunctor<b> IFunctor<T>.Fmap<b>(Func<T, b> f)
+        {
+            return Fmap(f);
+        } 
+
         public Maybe<T2> Fmap<T2>(Func<T, T2> f)
         {
             if (f == null) throw new ArgumentNullException("f");
@@ -38,7 +48,7 @@ namespace Lib.Monads
             }
             else
             {
-                return new Maybe<T2>();   
+                return new Maybe<T2>(null, null);
             }
         } 
 
@@ -55,6 +65,11 @@ namespace Lib.Monads
             if (HasValue) action(_value);
         }
 
-        public static readonly Maybe<T> Nothing = new Maybe<T>();
+        public static readonly Maybe<T> Nothing = new Maybe<T>(null, null);
+
+        public static Maybe<T> Just(T t)
+        {
+            return new Maybe<T>(t);
+        } 
     }
 }

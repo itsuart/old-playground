@@ -45,7 +45,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Containers\AbortableComputationTests.cs" />
     <Compile Include="Containers\FuncChainTests.cs" />
+    <Compile Include="Containers\MaybeTests.cs" />
     <Compile Include="Extensions\Functional\MemoizationTests.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

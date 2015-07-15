@@ -40,16 +40,16 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Collections\HashMap.cs" />
+    <Compile Include="Containers\AbortableComputation.cs" />
     <Compile Include="Containers\Either.cs" />
     <Compile Include="Containers\FuncChain.cs" />
     <Compile Include="Extensions\CollectionExtensions.cs" />
     <Compile Include="Containers\Maybe.cs" />
     <Compile Include="Extensions\FunctionalExtensions.cs" />
+    <Compile Include="Monads\IFunctor.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Monads\" />
-  </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
